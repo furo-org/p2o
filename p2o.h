@@ -79,7 +79,9 @@ struct Pose2D
     }
 };
 
-struct GraphConstraint2D
+using Pose2DVec = std::vector<Pose2D>;
+
+struct Con2D
 {
     int id1, id2;
     Pose2D t;
@@ -88,7 +90,10 @@ struct GraphConstraint2D
     {
         info = mat.inverse();
     }
+EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
+
+using Con2DVec = std::vector<Con2D,Eigen::aligned_allocator<Con2D> >;
 
 struct ErrorFunc2D
 {
@@ -128,26 +133,28 @@ struct ErrorFunc2D
 class Optimizer2D
 {
     bool verbose;
+    double lambda;
     double stop_thre;
     double robust_delta;
     typedef Eigen::Triplet<p2o_float_t> p2o_triplet;
     std::vector<p2o_triplet> tripletList;
 public:
-    Optimizer2D() : verbose(false), stop_thre(1e-3), robust_delta(std::numeric_limits<double>::max()) {}
+    Optimizer2D() : verbose(false), lambda(1e-6), stop_thre(1e-3), robust_delta(std::numeric_limits<double>::max()) {}
     ~Optimizer2D() {}
+    void setLambda(double val) { lambda = val; }
     void setStopEpsilon(double val) { stop_thre = val; }
     void setRobustThreshold(double val) { robust_delta = val; }
     void setVerbose(bool val) { verbose = val; }
-    std::vector<Pose2D> optimizePath(const std::vector<Pose2D> &in_graphnodes, const std::vector<GraphConstraint2D> &constraints, int max_steps, int min_steps = 3);
-    double optimizePathOneStep(std::vector<Pose2D> &out_nodes, const std::vector<Pose2D> &graphnodes, const std::vector<GraphConstraint2D> &constraints, double prev_res);
-    double globalErrorFunc(const std::vector<Pose2D> &poses, const std::vector<GraphConstraint2D> &constraints);
-    bool loadFile(const char *g2ofile, std::vector<Pose2D> &nodes, std::vector<GraphConstraint2D> &constraints);
+    Pose2DVec optimizePath(const Pose2DVec &in_graphnodes, const Con2DVec &constraints, int max_steps, int min_steps = 3);
+    double optimizePathOneStep(Pose2DVec &out_nodes, const Pose2DVec &graphnodes, const Con2DVec &constraints, double prev_res);
+    double globalCost(const Pose2DVec &poses, const Con2DVec &constraints);
+    bool loadFile(const char *g2ofile, Pose2DVec &nodes, Con2DVec &constraints);
 };
 
-std::vector<Pose2D> Optimizer2D::optimizePath(const std::vector<Pose2D> &in_graphnodes, const std::vector<GraphConstraint2D> &constraints, int max_steps, int min_steps)
+Pose2DVec Optimizer2D::optimizePath(const Pose2DVec &in_graphnodes, const Con2DVec &constraints, int max_steps, int min_steps)
 {
-    std::vector<Pose2D> graphnodes = in_graphnodes;
-    std::vector<Pose2D> ret;
+    Pose2DVec graphnodes = in_graphnodes;
+    Pose2DVec ret;
     p2o_float_t prevres = std::numeric_limits<p2o_float_t>::max();
     for(int i=1; i<=max_steps; i++) {
         auto t0 = std::chrono::high_resolution_clock::now();
@@ -166,10 +173,10 @@ std::vector<Pose2D> Optimizer2D::optimizePath(const std::vector<Pose2D> &in_grap
     return graphnodes;
 }
 
-double Optimizer2D::globalErrorFunc(const std::vector<Pose2D> &poses, const std::vector<GraphConstraint2D> &constraints)
+double Optimizer2D::globalCost(const Pose2DVec &poses, const Con2DVec &constraints)
 {
     double sum = 0;
-    for (const GraphConstraint2D &c : constraints) {
+    for (const Con2D &c : constraints) {
         Vec3D diff = ErrorFunc2D::error_func(poses[c.id1], poses[c.id2], c.t);
         Mat3D info = c.info * robust_coeff(diff.transpose() * c.info * diff, robust_delta);
         sum += diff.transpose() * info * diff;
@@ -177,7 +184,7 @@ double Optimizer2D::globalErrorFunc(const std::vector<Pose2D> &poses, const std:
     return sum;
 }
 
-double Optimizer2D::optimizePathOneStep( std::vector<Pose2D> &out_nodes, const std::vector<Pose2D> &graphnodes, const std::vector<GraphConstraint2D> &constraints, double prev_res )
+double Optimizer2D::optimizePathOneStep( Pose2DVec &out_nodes, const Pose2DVec &graphnodes, const Con2DVec &constraints, double prev_res )
 {
     static const int dim = 3;
     size_t indlist[] = {0, 1, 2};
@@ -187,7 +194,7 @@ double Optimizer2D::optimizePathOneStep( std::vector<Pose2D> &out_nodes, const s
     tripletList.clear();
     tripletList.reserve(constraints.size() * dim * dim * 4);
 
-    for(const GraphConstraint2D &con: constraints) {
+    for(const Con2D &con: constraints) {
         int ida = con.id1;
         int idb = con.id2;
         const Pose2D &pa = graphnodes[ida];
@@ -217,6 +224,9 @@ double Optimizer2D::optimizePathOneStep( std::vector<Pose2D> &out_nodes, const s
     for(size_t k: indlist) {
         tripletList.push_back(p2o_triplet(k, k, 1e10));
     }
+    for(size_t i=0; i<dim*numnodes; ++i) {
+        tripletList.push_back(p2o_triplet(i, i, lambda));
+    }
 
     Eigen::SparseMatrix<p2o_float_t> mat(numnodes*dim, numnodes*dim);
     mat.setFromTriplets(tripletList.begin(), tripletList.end());
@@ -235,12 +245,12 @@ double Optimizer2D::optimizePathOneStep( std::vector<Pose2D> &out_nodes, const s
         Pose2D pos(graphnodes[i].x + x[u_i], graphnodes[i].y + x[u_i + 1], graphnodes[i].th + x[u_i + 2]);
         out_nodes.push_back(pos);
     }
-    return globalErrorFunc(out_nodes, constraints);
+    return globalCost(out_nodes, constraints);
 }
 
-bool Optimizer2D::loadFile( const char *g2ofile, std::vector<Pose2D> &nodes, std::vector<GraphConstraint2D> &constraints )
+bool Optimizer2D::loadFile( const char *g2ofile, Pose2DVec &nodes, Con2DVec &constraints )
 {
-    std::vector<Pose2D> ret;
+    Pose2DVec ret;
     std::ifstream is(g2ofile);
     if (!is) return false;
 
@@ -259,7 +269,7 @@ bool Optimizer2D::loadFile( const char *g2ofile, std::vector<Pose2D> &nodes, std
             sstrm >> id >> x >> y >> th;
             nodes.push_back(Pose2D(x, y, th));
         } else if (tag=="EDGE_SE2") {
-            GraphConstraint2D con;
+            Con2D con;
             p2o_float_t c1, c2, c3, c4, c5, c6;
             sstrm >> con.id1 >> con.id2 >> x >> y >> th >> c1 >> c2 >> c3 >> c4 >> c5 >> c6;
             con.t = Pose2D(x, y, th);
