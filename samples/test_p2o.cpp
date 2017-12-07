@@ -17,9 +17,10 @@ void sample_g2o(const std::string &filename, int max_iter, int min_iter, double 
     std::string fname_out = filename + "_out.txt";
     std::ofstream ofs(fname_in);
     std::ofstream ofs2(fname_out);
-    std::vector<p2o::Pose2D> nodes;
-    std::vector<p2o::GraphConstraint2D> con;
+    p2o::Pose2DVec nodes;
+    p2o::Con2DVec con;
     p2o::Optimizer2D optimizer;
+    optimizer.setLambda(1e-6);
     optimizer.setVerbose(true);
     if (!optimizer.loadFile(filename.c_str(), nodes, con)) {
         std::cout << "can't open file: " << filename << std::endl;
@@ -28,7 +29,7 @@ void sample_g2o(const std::string &filename, int max_iter, int min_iter, double 
 
     optimizer.setRobustThreshold(robust_thre);
     auto t0 = std::chrono::high_resolution_clock::now();
-    std::vector<p2o::Pose2D> result = optimizer.optimizePath(nodes, con, max_iter, min_iter);
+    p2o::Pose2DVec result = optimizer.optimizePath(nodes, con, max_iter, min_iter);
     auto t1 = std::chrono::high_resolution_clock::now();
     auto elapsed = std::chrono::duration_cast< std::chrono::microseconds> (t1-t0);
     std::cout << filename << ": " << elapsed.count()*1e-6 << "s" << std::endl;
