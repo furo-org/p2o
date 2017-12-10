@@ -139,7 +139,7 @@ class Optimizer2D
     typedef Eigen::Triplet<p2o_float_t> p2o_triplet;
     std::vector<p2o_triplet> tripletList;
 public:
-    Optimizer2D() : verbose(false), lambda(1e-6), stop_thre(1e-3), robust_delta(std::numeric_limits<double>::max()) {}
+    Optimizer2D() : verbose(false), lambda(0), stop_thre(1e-3), robust_delta(std::numeric_limits<double>::max()) {}
     ~Optimizer2D() {}
     void setLambda(double val) { lambda = val; }
     void setStopEpsilon(double val) { stop_thre = val; }
@@ -197,6 +197,8 @@ double Optimizer2D::optimizePathOneStep( Pose2DVec &out_nodes, const Pose2DVec &
     for(const Con2D &con: constraints) {
         int ida = con.id1;
         int idb = con.id2;
+        assert(0 <= ida && ida < graphnodes.size());
+        assert(0 <= idb && idb < graphnodes.size());
         const Pose2D &pa = graphnodes[ida];
         const Pose2D &pb = graphnodes[idb];
 
@@ -280,6 +282,283 @@ bool Optimizer2D::loadFile( const char *g2ofile, Pose2DVec &nodes, Con2DVec &con
         }
     }
 
+    return true;
+}
+
+using Vec6D = Eigen::Matrix<p2o_float_t,6,1>;
+using Mat6D = Eigen::Matrix<p2o_float_t,6,6>;
+
+struct RotVec
+{
+    p2o_float_t ax, ay, az;
+    RotVec() : ax(0), ay(0), az(0) {}
+    RotVec(p2o_float_t x, p2o_float_t y, p2o_float_t z) : ax(x), ay(y), az(z) {}
+    RotVec(const Eigen::Quaterniond &in_q) {
+        Eigen::Quaterniond q = in_q.normalized();
+        if (q.w() < 0) q = Eigen::Quaterniond(-q.w(), -q.x(), -q.y(), -q.z());
+        p2o_float_t x = q.x();
+        p2o_float_t y = q.y();
+        p2o_float_t z = q.z();
+        double norm_im = sqrt(x*x+y*y+z*z);
+        if (norm_im < 1e-7) {
+            ax = 2*x;
+            ay = 2*y;
+            az = 2*z;
+        } else {
+            double th = 2 * atan2(norm_im, q.w());
+            ax = x / norm_im * th;
+            ay = y / norm_im * th;
+            az = z / norm_im * th;
+        }
+    }
+    p2o_float_t norm() const { return sqrt(ax*ax + ay*ay + az*az); }
+    Eigen::Quaterniond toQuaternion() const {
+        p2o_float_t v = sqrt(ax*ax + ay*ay + az*az);
+        if (v < 1e-6) {
+            return Eigen::Quaterniond(1, 0, 0, 0);
+        }
+        return Eigen::Quaterniond(cos(v/2), sin(v/2)*ax/v, sin(v/2)*ay/v, sin(v/2)*az/v);
+    }
+    Mat3D toRotationMatrix() const {
+        return toQuaternion().toRotationMatrix();
+    }
+};
+
+inline std::ostream& operator<<(std::ostream& os, const RotVec &p)
+{
+    os << p.ax << ' ' << p.ay << ' ' << p.az << ' ';
+    return os;
+}
+
+struct Pose3D
+{
+    p2o_float_t x, y, z;
+    RotVec rv;
+    Pose3D() : x(0), y(0), z(0) {}
+    Pose3D(p2o_float_t in_x, p2o_float_t in_y, p2o_float_t in_z, const RotVec &in_rv) : x(in_x), y(in_y), z(in_z), rv(in_rv) {}
+    Pose3D(p2o_float_t in_x,  p2o_float_t in_y,  p2o_float_t in_z,
+           p2o_float_t ax, p2o_float_t ay, p2o_float_t az) : x(in_x), y(in_y), z(in_z), rv(ax, ay, az) {}
+    Vec6D vec() const {
+        Vec6D v;
+        v << x, y, z, rv.ax, rv.ay, rv.az;
+        return v;
+    }
+    Vec3D pos() const {
+        Vec3D v;
+        v << x, y, z;
+        return v;
+    }
+    Pose3D oplus(const Pose3D &rel) const {
+        Vec3D t = rv.toRotationMatrix()*rel.pos() + this->pos();
+        RotVec rv2(rv.toQuaternion() * rel.rv.toQuaternion());
+        Eigen::Quaterniond q = rv.toQuaternion() * rel.rv.toQuaternion();
+        return Pose3D(t[0], t[1], t[2], rv2);
+    }
+    Pose3D ominus(const Pose3D &base) const {
+        Vec3D t = base.rv.toRotationMatrix().transpose()*(this->pos() - base.pos());
+        RotVec rv2(base.rv.toQuaternion().conjugate() * rv.toQuaternion());
+        return Pose3D(t[0], t[1], t[2], rv2);
+    }
+};
+
+using Pose3DVec = std::vector<Pose3D>;
+
+struct Con3D
+{
+    int id1, id2;
+    Pose3D t;
+    Mat6D info;
+    void setCovarianceMatrix( const Mat6D &mat )
+    {
+        info = mat.inverse();
+    }
+EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
+
+using Con3DVec = std::vector<Con3D,Eigen::aligned_allocator<Con3D> >;
+
+struct ErrorFunc3D
+{
+    static Vec6D error_func(const Pose3D &pa, const Pose3D &pb, const Pose3D &con) {
+        Pose3D ba = pb.ominus(pa);
+        RotVec drv(con.rv.toQuaternion().conjugate() * ba.rv.toQuaternion());
+        Vec6D ret;
+        ret << ba.x - con.x, ba.y - con.y, ba.z - con.z, drv.ax, drv.ay, drv.az;
+        return ret;
+    }
+    static Vec6D calcError(const Pose3D &pa, const Pose3D &pb, const Pose3D &con, Mat6D &Ja, Mat6D &Jb) {
+        p2o_float_t eps = 1e-5;
+        Vec6D e0 = error_func(pa, pb, con);
+        #if 1 // numerical jacobian
+        for(size_t i=0; i<6; ++i) {
+            double d[6] = {0, 0, 0};
+            d[i] = eps;
+            Pose3D pa1(pa.x + d[0], pa.y + d[1], pa.z + d[2], pa.rv.ax + d[3], pa.rv.ay + d[4], pa.rv.az + d[5]);
+            Pose3D pb1(pb.x + d[0], pb.y + d[1], pb.z + d[2], pb.rv.ax + d[3], pb.rv.ay + d[4], pb.rv.az + d[5]);
+            Ja.block<6,1>(0,i) = (error_func(pa1, pb, con) - e0)/eps;
+            Jb.block<6,1>(0,i) = (error_func(pa, pb1, con) - e0)/eps;
+        }
+        #endif
+        return e0;
+    }
+};
+
+class Optimizer3D
+{
+    bool verbose;
+    double lambda;
+    double stop_thre;
+    double robust_delta;
+    typedef Eigen::Triplet<p2o_float_t> p2o_triplet;
+    std::vector<p2o_triplet> tripletList;
+public:
+    Optimizer3D() : verbose(false), lambda(0), stop_thre(1e-3), robust_delta(std::numeric_limits<double>::max()) {}
+    ~Optimizer3D() {}
+    void setLambda(double val) { lambda = val; }
+    void setStopEpsilon(double val) { stop_thre = val; }
+    void setRobustThreshold(double val) { robust_delta = val; }
+    void setVerbose(bool val) { verbose = val; }
+    Pose3DVec optimizePath(const Pose3DVec &in_graphnodes, const Con3DVec &constraints, int max_steps, int min_steps = 3);
+    double optimizePathOneStep(Pose3DVec &out_nodes, const Pose3DVec &graphnodes, const Con3DVec &constraints, double prev_res);
+    double globalCost(const Pose3DVec &poses, const Con3DVec &constraints);
+    bool loadFile(const char *g2ofile, Pose3DVec &nodes, Con3DVec &constraints);
+};
+
+Pose3DVec Optimizer3D::optimizePath(const Pose3DVec &in_graphnodes, const Con3DVec &constraints, int max_steps, int min_steps)
+{
+    Pose3DVec graphnodes = in_graphnodes;
+    Pose3DVec ret;
+    p2o_float_t prevres = std::numeric_limits<p2o_float_t>::max();
+    for(int i=1; i<=max_steps; i++) {
+        auto t0 = std::chrono::high_resolution_clock::now();
+        p2o_float_t res = optimizePathOneStep(ret, graphnodes, constraints, prevres);
+        auto t1 = std::chrono::high_resolution_clock::now();
+        auto elapsed = std::chrono::duration_cast< std::chrono::microseconds> (t1-t0);
+        if (verbose) std::cout << "step " << i << ": " << res << " time: " << elapsed.count()*1e-6 << "s" << std::endl;
+        graphnodes = ret;
+
+        if (i > min_steps && prevres - res < stop_thre) {
+            if (verbose) std::cout << "converged: " << prevres - res << " < " << stop_thre << std::endl;
+            break;
+        }
+        prevres = res;
+    }
+    return graphnodes;
+}
+
+double Optimizer3D::globalCost(const Pose3DVec &poses, const Con3DVec &constraints)
+{
+    double sum = 0;
+    for (const Con3D &c : constraints) {
+        Vec6D diff = ErrorFunc3D::error_func(poses[c.id1], poses[c.id2], c.t);
+        Mat6D info = c.info * robust_coeff(diff.transpose() * c.info * diff, robust_delta);
+        sum += diff.transpose() * info * diff;
+    }
+    return sum;
+}
+
+double Optimizer3D::optimizePathOneStep( Pose3DVec &out_nodes, const Pose3DVec &graphnodes, const Con3DVec &constraints, double prev_res )
+{
+    static const int dim = 6;
+    size_t indlist[] = {0, 1, 2, 3, 4, 5};
+    size_t numnodes = graphnodes.size();
+    Eigen::Matrix<p2o_float_t, Eigen::Dynamic, 1> bf = Eigen::Matrix<p2o_float_t, Eigen::Dynamic, 1>::Zero(numnodes * dim);
+
+    tripletList.clear();
+    tripletList.reserve(constraints.size() * dim * dim * 4);
+
+    for(const Con3D &con: constraints) {
+        int ida = con.id1;
+        int idb = con.id2;
+        assert(0 <= ida && ida < graphnodes.size());
+        assert(0 <= idb && idb < graphnodes.size());
+        const Pose3D &pa = graphnodes[ida];
+        const Pose3D &pb = graphnodes[idb];
+
+        Mat6D Ja, Jb;
+        Vec6D r = ErrorFunc3D::calcError(pa, pb, con.t, Ja, Jb);
+        Mat6D info = con.info * robust_coeff(r.transpose() * con.info * r, robust_delta);
+
+        Mat6D trJaInfo = Ja.transpose() * info;
+        Mat6D trJaInfoJa = trJaInfo * Ja;
+        Mat6D trJbInfo = Jb.transpose() * info;
+        Mat6D trJbInfoJb = trJbInfo * Jb;
+        Mat6D trJaInfoJb = trJaInfo * Jb;
+
+        for(size_t k: indlist) {
+            for(size_t m: indlist) {
+                tripletList.push_back(p2o_triplet(ida*dim+k, ida*dim+m, trJaInfoJa(k,m)));
+                tripletList.push_back(p2o_triplet(idb*dim+k, idb*dim+m, trJbInfoJb(k,m)));
+                tripletList.push_back(p2o_triplet(ida*dim+k, idb*dim+m, trJaInfoJb(k,m)));
+                tripletList.push_back(p2o_triplet(idb*dim+k, ida*dim+m, trJaInfoJb(m,k)));
+            }
+        }
+        bf.segment(ida*dim, dim) += trJaInfo * r;
+        bf.segment(idb*dim, dim) += trJbInfo * r;
+    }
+    for(size_t k: indlist) {
+        tripletList.push_back(p2o_triplet(k, k, 1e10));
+    }
+    for(size_t i=0; i<dim*numnodes; ++i) {
+        tripletList.push_back(p2o_triplet(i, i, lambda));
+    }
+
+    Eigen::SparseMatrix<p2o_float_t> mat(numnodes*dim, numnodes*dim);
+    mat.setFromTriplets(tripletList.begin(), tripletList.end());
+
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<p2o_float_t> > solver;
+    solver.compute(mat);
+    Eigen::Matrix<p2o_float_t, Eigen::Dynamic, 1> x = solver.solve(-bf);
+
+    out_nodes.clear();
+    for(unsigned int i=0;i<graphnodes.size();i++) {
+        int u_i = i * dim;
+        const Pose3D &p = graphnodes[i];
+        RotVec rv(p.rv.ax + x[u_i+3], p.rv.ay + x[u_i+4], p.rv.az + x[u_i+5]);
+        out_nodes.push_back(Pose3D(p.x + x[u_i], p.y + x[u_i + 1], p.z + x[u_i + 2], rv));
+    }
+    return globalCost(out_nodes, constraints);
+}
+
+bool Optimizer3D::loadFile( const char *g2ofile, Pose3DVec &nodes, Con3DVec &constraints )
+{
+    std::ifstream is(g2ofile);
+    if (!is) return false;
+
+    nodes.clear();
+    constraints.clear();
+    int id;
+    double x, y, z, qx, qy, qz, qw;
+    while(is){
+        char buf[1024];
+        is.getline(buf,1024);
+        std::istringstream sstrm(buf);
+        std::string tag;
+        sstrm >> tag;
+        if (tag=="VERTEX_SE3:QUAT"){
+            sstrm >> id >> x >> y >> z >> qx >> qy >> qz >> qw; 
+            nodes.push_back(Pose3D(x, y, z, Eigen::Quaterniond(qw, qx, qy, qz)));
+        } else if (tag=="EDGE_SE3:QUAT"){
+            Con3D con;
+            sstrm >> con.id1 >> con.id2 >> x >> y >> z >> qx >> qy >> qz >> qw;
+            con.t = Pose3D(x, y, z, Eigen::Quaterniond(qw, qx, qy, qz));
+            for(int i=0; i<6; i++) {
+                for(int j=i; j<6; j++) {
+                    double val;
+                    sstrm >> val;
+                    con.info(i,j) = val;
+                    con.info(j,i) = val;
+                }
+            }
+            if (con.id1 > con.id2) {
+                con.t = Pose3D().ominus(con.t);
+                int id0 = con.id1;
+                con.id1 = con.id2;
+                con.id2 = id0;
+            }
+            constraints.push_back(con);
+        }
+    }
     return true;
 }
 

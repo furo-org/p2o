@@ -173,5 +173,8 @@ set term x11 1
 plot 'manhattan3500.g2o_in.txt' w l, 'manhattan3500.g2o_out.txt' w l
 set term x11 2
 plot 'mit_killian.g2o_in.txt' w l, 'mit_killian.g2o_out.txt' w l
+set term x11 3
+set view equal xyz
+splot 'parking-garage.g2o_in.txt' w l, 'parking-garage.g2o_out.txt' w l
 pause -1
 #    EOF
