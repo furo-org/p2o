@@ -2,7 +2,9 @@
 
 p2o is a header-only 2D/3D pose-graph optimization library.
 
-Current status: ALPHA
+Current status: BETA
+
+full features are available, APIs are subject to change.
 
 # Prerequisits
 p2o is dependent on Eigen3 and C++11.

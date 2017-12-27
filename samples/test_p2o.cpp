@@ -81,6 +81,10 @@ int main()
     // 3D
     sample_g2o_3d("parking-garage.g2o", 10, 3, 1);
 
+    sample_g2o_3d("torus3d_guess.g2o", 10, 3, 1);
+
+    sample_g2o_3d("sphere2200_guess.g2o", 10, 3, 1);
+
     return 0;
 }
 

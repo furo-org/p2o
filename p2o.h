@@ -21,6 +21,7 @@ using p2o_float_t = double;
 
 namespace p2o
 {
+// === 2D geometry utility classes and functions ===
 
 using Vec3D = Eigen::Matrix<p2o_float_t,3,1>;
 using Mat3D = Eigen::Matrix<p2o_float_t,3,3>;
@@ -39,7 +40,7 @@ static inline p2o_float_t normalize_rad_pi_mpi(double rad)
     return val;
 }
 
-static Mat3D rotMat2D(p2o_float_t th)
+static inline Mat3D rotMat2D(p2o_float_t th)
 {
     Mat3D rot;
     rot << cos(th), -sin(th), 0,
@@ -48,8 +49,11 @@ static Mat3D rotMat2D(p2o_float_t th)
     return rot;
 }
 
-static double robust_coeff(p2o_float_t squared_error, p2o_float_t delta)
+// === 2D pose-graph optimizer ===
+
+static inline double robust_coeff(p2o_float_t squared_error, p2o_float_t delta)
 {
+    if (squared_error < 0) return 0;
     p2o_float_t sqre = sqrt(squared_error);
     if (sqre < delta) return 1; // no effect
 
@@ -233,10 +237,7 @@ double Optimizer2D::optimizePathOneStep( Pose2DVec &out_nodes, const Pose2DVec &
     Eigen::SparseMatrix<p2o_float_t> mat(numnodes*dim, numnodes*dim);
     mat.setFromTriplets(tripletList.begin(), tripletList.end());
 
-    //Eigen::SimplicialLLT<Eigen::SparseMatrix<p2o_float_t> > solver;
     Eigen::SimplicialLDLT<Eigen::SparseMatrix<p2o_float_t> > solver;
-    //Eigen::SparseLU<Eigen::SparseMatrix<p2o_float_t> > solver;
-    //Eigen::ConjugateGradient<Eigen::SparseMatrix<p2o_float_t> > solver;
 
     solver.compute(mat);
     Eigen::Matrix<p2o_float_t, Eigen::Dynamic, 1> x = solver.solve(-bf);
@@ -285,6 +286,8 @@ bool Optimizer2D::loadFile( const char *g2ofile, Pose2DVec &nodes, Con2DVec &con
     return true;
 }
 
+// === 3D utility classes and functions ===
+
 using Vec6D = Eigen::Matrix<p2o_float_t,6,1>;
 using Mat6D = Eigen::Matrix<p2o_float_t,6,6>;
 
@@ -312,6 +315,7 @@ struct RotVec
         }
     }
     p2o_float_t norm() const { return sqrt(ax*ax + ay*ay + az*az); }
+    RotVec inverted() const { return RotVec(-ax, -ay, -az); }
     Eigen::Quaterniond toQuaternion() const {
         p2o_float_t v = sqrt(ax*ax + ay*ay + az*az);
         if (v < 1e-6) {
@@ -329,6 +333,97 @@ inline std::ostream& operator<<(std::ostream& os, const RotVec &p)
     os << p.ax << ' ' << p.ay << ' ' << p.az << ' ';
     return os;
 }
+
+static inline Eigen::Matrix<p2o_float_t, 4, 3> dQuat_dRV(const RotVec &rv)
+{
+    Eigen::Matrix<p2o_float_t, 4, 3> dqu;
+    double u1 = rv.ax, u2 = rv.ay, u3 = rv.az;
+    if (rv.norm() < 1e-6) {
+        dqu << -rv.ax, -rv.ay, -rv.az,
+                    2,      0,      0,
+                    0,      2,      0,
+                    0,      0,      2;
+
+        return dqu * 0.25;
+    }
+    double v = sqrt(u1*u1+u2*u2+u3*u3);
+    double vd = v*2;
+    double v2 = v*v;
+    double v3 = v*v*v;
+
+    double S = sin(v/2); double C = cos(v/2);
+    dqu << -u1 * S/vd, -u2*S/vd, -u3*S/vd,
+    S/v + u1*u1*C/(2*v2) - u1*u1*S/v3, u1*u2*(C/(2*v2)-S/v3), u1*u3*(C/(2*v2)-S/v3),
+    u1*u2*(C/(2*v2)-S/v3), S/v+u2*u2*C/(2*v2)-u2*u2*S/v3, u2*u3*(C/(2*v2)-S/v3),
+    u1*u3*(C/(2*v2)-S/v3), u2*u3*(C/(2*v2)-S/v3), S/v+u3*u3*C/(2*v2)-u3*u3*S/v3;
+
+    return dqu;
+}
+
+static inline void dR_dRV(const RotVec &rv, Mat3D &dux, Mat3D &duy, Mat3D &duz)
+{
+    Eigen::Quaterniond q = rv.toQuaternion();
+    double qw = q.w(), qx = q.x(), qy = q.y(), qz = q.z();
+    Mat3D dRdqw, dRdqx, dRdqy, dRdqz;
+    dRdqw << qw,-qz, qy,
+             qz, qw,-qx,
+            -qy, qx, qw; dRdqw *= 2;
+    dRdqx << qx, qy, qz,
+             qy,-qx,-qw,
+             qz, qw,-qx; dRdqx *= 2;
+    dRdqy <<-qy, qx, qw,
+             qx, qy, qz,
+            -qw, qz,-qy; dRdqy *= 2;
+    dRdqz <<-qz,-qw, qx,
+             qw,-qz, qy,
+             qx, qy, qz; dRdqz *= 2;
+    Eigen::Matrix<p2o_float_t, 4, 3> dqdu = dQuat_dRV(rv);
+    dux = dRdqw * dqdu(0,0) + dRdqx * dqdu(1, 0) + dRdqy * dqdu(2, 0) + dRdqz * dqdu(3, 0);
+    duy = dRdqw * dqdu(0,1) + dRdqx * dqdu(1, 1) + dRdqy * dqdu(2, 1) + dRdqz * dqdu(3, 1);
+    duz = dRdqw * dqdu(0,2) + dRdqx * dqdu(1, 2) + dRdqy * dqdu(2, 2) + dRdqz * dqdu(3, 2);
+}
+
+static inline Eigen::Matrix<p2o_float_t, 3, 4> dRV_dQuat(const Eigen::Quaterniond &q)
+{
+    if (1-q.w()*q.w() < 1e-7) {
+        Eigen::Matrix<p2o_float_t, 3, 4> ret;
+        ret << 0, 2, 0, 0,
+               0, 0, 2, 0,
+               0, 0, 0, 2;
+        return ret;
+    }
+    double c = 1/(1-q.w()*q.w());
+    double d = acos(q.w())/(sqrt(1-q.w()*q.w()));
+    Eigen::Matrix<p2o_float_t, 3, 4> ret;
+    ret << 2*c*q.x()*(d*q.w()-1),2*d,  0,  0,
+           2*c*q.y()*(d*q.w()-1),  0,2*d,  0,
+           2*c*q.z()*(d*q.w()-1),  0,  0,2*d;
+    return ret;
+}
+
+static inline Eigen::Matrix<p2o_float_t,4,4> QMat(Eigen::Quaterniond &q)
+{
+    p2o_float_t qw = q.w(), qx = q.x(), qy = q.y(), qz = q.z();
+    Eigen::Matrix<p2o_float_t,4,4> Q;
+    Q << qw,-qx,-qy,-qz,
+         qx, qw,-qz, qy,
+         qy, qz, qw,-qx,
+         qz,-qy, qx, qw;
+    return Q;
+}
+
+static inline Eigen::Matrix<p2o_float_t,4,4> QMatBar(Eigen::Quaterniond &q)
+{
+    p2o_float_t qw = q.w(), qx = q.x(), qy = q.y(), qz = q.z();
+    Eigen::Matrix<p2o_float_t,4,4> Q;
+    Q << qw,-qx,-qy,-qz,
+         qx, qw, qz,-qy,
+         qy,-qz, qw, qx,
+         qz, qy,-qx, qw;
+    return Q;
+}
+
+// === 3D pose-graph optimizer ===
 
 struct Pose3D
 {
@@ -387,9 +482,33 @@ struct ErrorFunc3D
         return ret;
     }
     static Vec6D calcError(const Pose3D &pa, const Pose3D &pb, const Pose3D &con, Mat6D &Ja, Mat6D &Jb) {
-        p2o_float_t eps = 1e-5;
         Vec6D e0 = error_func(pa, pb, con);
-        #if 1 // numerical jacobian
+        Ja = Jb = Mat6D::Identity();
+
+        RotVec rva_inv = pa.rv.inverted();
+        Mat3D rotPaInv = rva_inv.toRotationMatrix();
+
+        Ja.block<3,3>(0, 0) = -rotPaInv;
+        Jb.block<3,3>(0, 0) = rotPaInv;
+        Mat3D dRux, dRuy, dRuz;
+        dR_dRV(rva_inv, dRux, dRuy, dRuz);
+
+        Vec3D cvec;
+        cvec << pb.x - pa.x, pb.y - pa.y, pb.z - pa.z;
+        Ja.block<3,1>(0,3) = -dRux * cvec;
+        Ja.block<3,1>(0,4) = -dRuy * cvec;
+        Ja.block<3,1>(0,5) = -dRuz * cvec;
+
+        // rotation part: qdiff = qc-1 * qa-1 * qb;
+        Eigen::Quaterniond qainv = rva_inv.toQuaternion();
+        Eigen::Quaterniond qcinv = con.rv.inverted().toQuaternion();
+        Eigen::Quaterniond qb = pb.rv.toQuaternion();
+        Eigen::Quaterniond qinvca = qcinv * qainv;
+        Eigen::Quaterniond qdiff = qinvca * qb;
+        Ja.block<3,3>(3,3) = -dRV_dQuat(qdiff) * QMat(qcinv) * QMatBar(qb) * dQuat_dRV(rva_inv);
+        Jb.block<3,3>(3,3) =  dRV_dQuat(qdiff) * QMat(qcinv) * QMat(qainv) * dQuat_dRV(pb.rv);
+        #if 0 // numerical jacobian
+        p2o_float_t eps = 1e-5;
         for(size_t i=0; i<6; ++i) {
             double d[6] = {0, 0, 0};
             d[i] = eps;
