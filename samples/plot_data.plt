@@ -176,5 +176,9 @@ plot 'mit_killian.g2o_in.txt' w l, 'mit_killian.g2o_out.txt' w l
 set term x11 3
 set view equal xyz
 splot 'parking-garage.g2o_in.txt' w l, 'parking-garage.g2o_out.txt' w l
+set term x11 4
+splot 'torus3d_guess.g2o_in.txt' w l, 'torus3d_guess.g2o_out.txt' w l
+set term x11 5
+splot 'sphere2200_guess.g2o_in.txt' w l, 'sphere2200_guess.g2o_out.txt' w l
 pause -1
 #    EOF
