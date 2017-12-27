@@ -14,11 +14,11 @@ wget http://www.furo.org/irie/datasets/torus3d_guess.g2o -nc
 
 # build p2o sample
 
-cmake .
+cmake `dirname $0`
 make
 
 # run p2o sample
 
 ./test_p2o
-gnuplot plot_data.plt
+gnuplot `dirname $0`/plot_data.plt
 
