@@ -446,7 +446,6 @@ struct Pose3D
     Pose3D oplus(const Pose3D &rel) const {
         Vec3D t = rv.toRotationMatrix()*rel.pos() + this->pos();
         RotVec rv2(rv.toQuaternion() * rel.rv.toQuaternion());
-        Eigen::Quaterniond q = rv.toQuaternion() * rel.rv.toQuaternion();
         return Pose3D(t[0], t[1], t[2], rv2);
     }
     Pose3D ominus(const Pose3D &base) const {
