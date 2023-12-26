@@ -25,6 +25,7 @@ bool loadP2OFile( const char *p2ofile, p2o::Pose3DVec &nodes, std::vector<p2o::E
     while(is){
         char buf[1024];
         is.getline(buf,1024);
+        if (buf[0] == '#') continue;
         std::istringstream sstrm(buf);
         std::string tag;
         sstrm >> tag;
@@ -75,7 +76,6 @@ bool loadP2OFile( const char *p2ofile, p2o::Pose3DVec &nodes, std::vector<p2o::E
 
 void sample_g2o_3d(const std::string &filename, int max_iter, int min_iter, double robust_thre)
 {
-    std::cout << "new api" << std::endl;
     std::string fname_in = filename + "_in.txt";
     std::string fname_out = filename + "_out.txt";
     std::ofstream ofs(fname_in);
@@ -97,10 +97,12 @@ void sample_g2o_3d(const std::string &filename, int max_iter, int min_iter, doub
     ofs << std::fixed << std::setprecision(10);
     ofs2 << std::fixed << std::setprecision(10);
     for(int i=1; i<result.size(); i++) {
+        Eigen::Quaterniond q1 = nodes[i].rv.toQuaternion();
+        Eigen::Quaterniond q2 = result[i].rv.toQuaternion();
         ofs << nodes[i].x << " " << nodes[i].y << " " << nodes[i].z << " "
-            << nodes[i].rv.ax << " " << nodes[i].rv.ay << " " << nodes[i].rv.az << std::endl;
+            << q1.x() << " " << q1.y() << " " << q1.z() << " " << q1.w() << std::endl;
         ofs2 << result[i].x << " " << result[i].y << " " << result[i].z << " "
-             << result[i].rv.ax << " " << result[i].rv.ay << " " << result[i].rv.az << std::endl;
+            << q2.x() << " " << q2.y() << " " << q2.z() << " " << q2.w() << std::endl;
     }
     for (auto &err : error_funcs) {
         delete err;
@@ -109,7 +111,7 @@ void sample_g2o_3d(const std::string &filename, int max_iter, int min_iter, doub
 
 int main(int argc, char *argv[])
 {
-    sample_g2o_3d(argv[1], 100, 10, 1);
+    sample_g2o_3d(argv[1], 100, 30, 1);
 
     return 0;
 }

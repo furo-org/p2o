@@ -135,7 +135,7 @@ Pose3DVec Optimizer3D::optimizePath(const Pose3DVec &in_graphnodes, const std::v
         if (verbose) std::cout << "step " << i << ": res=" << res << ", convergence_score=" << convergence << " time=" << elapsed.count()*1e-6 << "s" << std::endl;
         graphnodes = ret;
 
-        if (i > min_steps && prevres - res < stop_thre) {
+        if (i > min_steps && prevres - res < stop_thre && convergence < stop_thre) {
             if (verbose) std::cout << "converged: " << prevres - res << " < " << stop_thre << std::endl;
             break;
         }
