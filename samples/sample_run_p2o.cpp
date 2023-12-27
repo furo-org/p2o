@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iomanip>
 #include <chrono>
+#include <getopt.h>
 #include <p2o.h>
 
 bool loadP2OFile( const char *p2ofile, p2o::Pose3DVec &nodes, std::vector<p2o::ErrorFunc3D*> &errorfuncs)
@@ -109,9 +110,39 @@ void sample_g2o_3d(const std::string &filename, int max_iter, int min_iter, doub
     }
 }
 
+static void show_usage_and_exit()
+{
+    fprintf(stderr, "Usage: sample_run_p2o [-m max_iter] [-n min_iter] [-r robust_threshold] <p2ofile> \n");
+    exit(EXIT_FAILURE);
+}
+
 int main(int argc, char *argv[])
 {
-    sample_g2o_3d(argv[1], 100, 30, 1);
+    int max_iter = 300;
+    int min_iter = 50;
+    double robust_threshold = 0.01;
+
+    int opt;
+    while ((opt = getopt(argc, argv, "m:n:r:")) != -1) {
+        switch (opt) {
+            case 'm':
+                max_iter = atoi(optarg);
+                break;
+            case 'n':
+                min_iter = atoi(optarg);
+                break;
+            case 'r':
+                robust_threshold = atof(optarg);
+                break;
+            default: /* '?' */
+                show_usage_and_exit();
+        }
+    }
+
+    if (optind >= argc) {
+        show_usage_and_exit();
+    }
+    sample_g2o_3d(argv[optind], max_iter, min_iter, robust_threshold);
 
     return 0;
 }

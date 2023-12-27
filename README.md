@@ -15,5 +15,10 @@ Original p2o is still available and can be accessed in 'p2o_v1' tag.
 p2o v2 is dependent on Eigen3 and C++14.
 
 ## Usage
-see samples/sample_run_p2o.cpp
+```./sample_run_p2o <p2ofile>```
+
+Options:
+- max no. of iterations (-m) default: 300
+- min no. of iterations (-n) default: 50
+- robust threshold (-r) default: 0.01
 
