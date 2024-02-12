@@ -97,7 +97,7 @@ void sample_g2o_3d(const std::string &filename, int max_iter, int min_iter, doub
     std::cout << filename << ": " << elapsed.count()*1e-6 << "s" << std::endl;
     ofs << std::fixed << std::setprecision(10);
     ofs2 << std::fixed << std::setprecision(10);
-    for(int i=1; i<result.size(); i++) {
+    for(int i=0; i<result.size(); i++) {
         Eigen::Quaterniond q1 = nodes[i].rv.toQuaternion();
         Eigen::Quaterniond q2 = result[i].rv.toQuaternion();
         ofs << nodes[i].x << " " << nodes[i].y << " " << nodes[i].z << " "
