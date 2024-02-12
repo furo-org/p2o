@@ -22,3 +22,8 @@ Options:
 - min no. of iterations (-n) default: 50
 - robust threshold (-r) default: 0.01
 
+## Run p2o with sample GNSS data
+- ```cmake -Bbuild .```
+- ```cmake --build build```
+- ```./build/sample_run_p2o samples/data/cit_tsudanuma2020/CIT_2020_odom_gnss.p2o```
+- ```cd samples/data/cit_tsudanuma2020/ && gnuplot CIT_2020_odom_gnss.plt #trajectories will be saved in png files```
