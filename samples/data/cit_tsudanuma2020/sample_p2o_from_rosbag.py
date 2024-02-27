@@ -104,7 +104,7 @@ bag.close()
 
 mean_gnss = np.mean(np_gnss_list, axis=0)
 
-vertices.insert(0, f'VERTEX_SE3:QUAT 0 {mean_gnss[2]} {mean_gnss[3]} {mean_gnss[4]} 0 0 0 1')
+vertices.insert(0, f'VERTEX_SE3:QUAT 0 {mean_gnss[3]} {mean_gnss[2]} {mean_gnss[4]} 0 0 0 1')
 
 for i in range(1, len(np_poses)):
     p = np_poses[i,:]
