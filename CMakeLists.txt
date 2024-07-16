@@ -18,3 +18,9 @@ add_library(p2o SHARED src/p2o.cpp include/p2o.h)
 add_executable(sample_run_p2o samples/sample_run_p2o.cpp)
 target_link_libraries(sample_run_p2o p2o Eigen3::Eigen)
 
+set(BUILD_VIEWER OFF CACHE BOOL "Build p2o viewer")
+
+if(BUILD_VIEWER)
+    add_subdirectory(p2o_viewer)
+endif(BUILD_VIEWER)
+

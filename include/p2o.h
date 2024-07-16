@@ -121,6 +121,7 @@ struct Pose3D
     RotVec rv;
     Pose3D() : x(0), y(0), z(0) {}
     Pose3D(Vec3D in_t, const RotVec &in_rv) : x(in_t[0]), y(in_t[1]), z(in_t[2]), rv(in_rv) {}
+    Pose3D(Eigen::Transform<p2o_float_t, 3, Eigen::Isometry> t) : x(t.translation()[0]), y(t.translation()[1]), z(t.translation()[2]), rv(Eigen::Quaterniond(t.rotation())) {}
     Pose3D(p2o_float_t in_x, p2o_float_t in_y, p2o_float_t in_z, const RotVec &in_rv) : x(in_x), y(in_y), z(in_z), rv(in_rv) {}
     Pose3D(p2o_float_t in_x, p2o_float_t in_y, p2o_float_t in_z, const RotVec &in_rv, p2o_float_t in_bias_z) : x(in_x), y(in_y), z(in_z), rv(in_rv), bias_z(in_bias_z){}
     Pose3D(p2o_float_t in_x,  p2o_float_t in_y,  p2o_float_t in_z,
@@ -134,6 +135,12 @@ struct Pose3D
         Vec3D v;
         v << x, y, z;
         return v;
+    }
+    Eigen::Transform<p2o_float_t, 3, Eigen::Isometry> toIsometry3() const {
+        Eigen::Transform<p2o_float_t, 3, Eigen::Isometry> t = Eigen::Transform<p2o_float_t, 3, Eigen::Isometry>::Identity();
+        t.translation() = pos();
+        t.rotate(rv.toQuaternion());
+        return t;
     }
     Pose3D oplus(const Pose3D &rel) const {
         Vec3D t = rv.toRotationMatrix()*rel.pos() + this->pos();
