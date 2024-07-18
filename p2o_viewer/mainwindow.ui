@@ -34,6 +34,9 @@
      <string>File</string>
     </property>
     <addaction name="actionLoad_p2o_file"/>
+    <addaction name="separator"/>
+    <addaction name="actionLoad_PCD_file"/>
+    <addaction name="actionSave_point_cloud_map"/>
    </widget>
    <addaction name="menuFile"/>
   </widget>
@@ -47,13 +50,13 @@
      <item>
       <widget class="QGroupBox" name="groupBox">
        <property name="title">
-        <string>Visualization</string>
+        <string>Node Visualization</string>
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
          <widget class="QCheckBox" name="checkCoordinateAxis">
           <property name="text">
-           <string>Show Orientation</string>
+           <string>Show orientation</string>
           </property>
          </widget>
         </item>
@@ -62,12 +65,15 @@
           <item>
            <widget class="QLabel" name="label">
             <property name="text">
-             <string>Skip</string>
+             <string>Skip interval</string>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QSpinBox" name="spinSkipPose">
+            <property name="minimum">
+             <number>1</number>
+            </property>
             <property name="maximum">
              <number>100000</number>
             </property>
@@ -90,6 +96,13 @@
         <item>
          <layout class="QVBoxLayout" name="verticalLayout_4">
           <item>
+           <widget class="QPushButton" name="pushOptimizePoseGraph">
+            <property name="text">
+             <string>Optimize pose graph</string>
+            </property>
+           </widget>
+          </item>
+          <item>
            <layout class="QFormLayout" name="formLayout">
             <item row="0" column="1">
              <widget class="QSpinBox" name="spinMaxSteps">
@@ -111,7 +124,7 @@
             <item row="1" column="0">
              <widget class="QLabel" name="label_3">
               <property name="text">
-               <string>TextLabel</string>
+               <string>Min. steps</string>
               </property>
              </widget>
             </item>
@@ -152,13 +165,6 @@
           </item>
          </layout>
         </item>
-        <item>
-         <widget class="QPushButton" name="pushOptimizePoseGraph">
-          <property name="text">
-           <string>optimize</string>
-          </property>
-         </widget>
-        </item>
        </layout>
       </widget>
      </item>
@@ -169,39 +175,57 @@
        </property>
        <layout class="QVBoxLayout" name="verticalLayout_5">
         <item>
+         <widget class="QPushButton" name="pushShowPointCloudMap">
+          <property name="text">
+           <string>Show point cloud map</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <layout class="QFormLayout" name="formLayout_2">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_6">
+            <property name="text">
+             <string>Skip interval</string>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="1">
-           <widget class="QDoubleSpinBox" name="spinVoxelGridFilter">
+           <widget class="QSpinBox" name="spinSkipPointCloud">
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>1000</number>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="checkVoxelGridFilter">
+            <property name="text">
+             <string>Voxel filter</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QDoubleSpinBox" name="spinVoxelGridSize">
             <property name="suffix">
              <string>m</string>
             </property>
             <property name="minimum">
-             <double>0.050000000000000</double>
-            </property>
-            <property name="maximum">
-             <double>10.000000000000000</double>
-            </property>
-            <property name="singleStep">
              <double>0.010000000000000</double>
             </property>
             <property name="value">
-             <double>0.200000000000000</double>
-            </property>
-           </widget>
-          </item>
-          <item row="0" column="0">
-           <widget class="QLabel" name="label_5">
-            <property name="text">
-             <string>Voxel Grid Filter</string>
+             <double>0.300000000000000</double>
             </property>
            </widget>
           </item>
          </layout>
         </item>
         <item>
-         <widget class="QPushButton" name="pushGeneratePointCloudMap">
+         <widget class="QPushButton" name="pushHidePointCloudMap">
           <property name="text">
-           <string>Generate Point Cloud Map</string>
+           <string>Hide point cloud map</string>
           </property>
          </widget>
         </item>
@@ -247,6 +271,16 @@
   <action name="actionLoad_p2o_file">
    <property name="text">
     <string>Load p2o file</string>
+   </property>
+  </action>
+  <action name="actionLoad_PCD_file">
+   <property name="text">
+    <string>Load PCD file</string>
+   </property>
+  </action>
+  <action name="actionSave_point_cloud_map">
+   <property name="text">
+    <string>Save point cloud map</string>
    </property>
   </action>
  </widget>

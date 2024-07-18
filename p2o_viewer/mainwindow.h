@@ -13,8 +13,11 @@ class MainWindow : public QMainWindow {
 
 public slots:
     void onLoadP2oFile();
+    void onLoadPCDFile();
+    void onSavePCDFile();
     void onPushOptimizePoseGraph();
-    void onPushGeneratePointCloudMap();
+    void onPushShowPointCloudMap();
+    void onPushHidePointCloudMap();
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
@@ -22,6 +25,8 @@ public:
 
 private:
     void connectSignalsAndSlots();
+    void loadSettings();
+    void saveSettings();
     void loadP2oFile(const std::string &filename);
     void showPoseGraph(const p2o::Pose3DVec &poses, const std::vector<p2o::ErrorFunc3D*> &errorfuncs, const std::string &name);
 
@@ -34,6 +39,7 @@ private:
     std::vector<p2o::ErrorFunc3D*> errorfuncs;
     std::vector<std::string> cloud_files;
     pcl::PointCloud<pcl::PointXYZI>::Ptr map_cloud;
+    QString mLastFilePath;
 };
 
 #endif // MAINWINDOW_H
