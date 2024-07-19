@@ -13,6 +13,8 @@
 #include <QSettings>
 
 MainWindow::MainWindow(QWidget *parent) :
+        mPoseGraphVis("graph_in", Eigen::Vector3f(1, 1, 1)),
+        mResultPoseGraphVis("graph_out", Eigen::Vector3f(1, 0, 0)),
     QMainWindow(parent) {
     loadSettings();
     ui.setupUi(this);
@@ -57,7 +59,7 @@ void MainWindow::onPushOptimizePoseGraph() {
     int min_steps = ui.spinMinSteps->value();
     int max_steps = ui.spinMaxSteps->value();
     mResultNodes = opt.optimizePath(mNodes, mErrorFuncs, max_steps, min_steps);
-    showPoseGraph(mResultNodes, mErrorFuncs, "graph_out");
+    showPoseGraph(mResultNodes, mErrorFuncs, mResultPoseGraphVis);
 }
 
 void MainWindow::onPushShowPointCloudMap() {
@@ -122,24 +124,19 @@ void MainWindow::onLoadP2oFile() {
         mP2oDir = QFileInfo(p2ofile).absoluteDir();
         resetViewer();
 
-        showPoseGraph(mNodes, mErrorFuncs, "graph_in");
+        showPoseGraph(mNodes, mErrorFuncs, mPoseGraphVis);
         mLastFilePath = p2ofile;
     } else {
         QMessageBox::warning(this, "Error", "Failed to load P2O file.");
     }
 }
 
-void MainWindow::showPoseGraph(const p2o::Pose3DVec &poses, const std::vector<p2o::ErrorFunc3D*> &errorfuncs, const std::string &name) {
+void MainWindow::showPoseGraph(const p2o::Pose3DVec &poses, const std::vector<p2o::ErrorFunc3D*> &errorfuncs, PoseGraphVis &vis) {
     vtkSmartPointer<vtkPoints> vtk_points = vtkSmartPointer<vtkPoints>::New();
     vtkSmartPointer<vtkPolyLine> polyline = vtkSmartPointer<vtkPolyLine>::New();
 
-    Eigen::Vector3f c;
-    if (name == "graph_in") {
-        c << 1.0, 1.0, 1.0;
-    } else {
-        c << 1.0, 0.0, 0.0;
-    }
-
+    Eigen::Vector3f c = vis.color;
+    vis.removeObjects(mViewer);
     // Display nodes
     for(int i = 0; i < poses.size(); i++) {
         vtk_points->InsertNextPoint(poses[i].x, poses[i].y, poses[i].z);
@@ -153,9 +150,10 @@ void MainWindow::showPoseGraph(const p2o::Pose3DVec &poses, const std::vector<p2
     polyData->SetLines(cells);
 
     char graph_name[100];
-    sprintf(graph_name, "posegraph_%s", name.c_str());
+    sprintf(graph_name, "posegraph_%s", vis.name.c_str());
     mViewer->addModelFromPolyData(polyData, graph_name);
     mViewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, c[0], c[1], c[2], graph_name);
+    vis.nodes_poly = graph_name;
 
     // Display node orientation
     if (ui.checkShowNodeOrientation->isChecked()) {
@@ -164,21 +162,23 @@ void MainWindow::showPoseGraph(const p2o::Pose3DVec &poses, const std::vector<p2
         for (int i = 0; i < poses.size(); i += skip) {
             Eigen::Affine3f aff = poses[i].toIsometry3().cast<float>();
             char frame_name[100];
-            sprintf(frame_name, "axis_%s_%d", name.c_str(), i);
+            sprintf(frame_name, "axis_%s_%d", vis.name.c_str(), i);
             mViewer->addCoordinateSystem(axis_size, aff, frame_name);
+            vis.node_axes.push_back(frame_name);
         }
     }
 
     // Display edges
     if (ui.checkShowEdges->isChecked()) {
-        c *= 0.4;
+        c *= 0.5;
         for(int i = 0; i < errorfuncs.size(); i++) {
             p2o::ErrorFunc3D *err = errorfuncs[i];
             if (abs(err->ida - err->idb) == 1) continue;
             char edge_name[256];
-            sprintf(edge_name, "edge_%s_%d", name.c_str(), i);
+            sprintf(edge_name, "edge_%s_%d", vis.name.c_str(), i);
             mViewer->addLine(pcl::PointXYZ(poses[err->ida].x, poses[err->ida].y, poses[err->ida].z),
                             pcl::PointXYZ(poses[err->idb].x, poses[err->idb].y, poses[err->idb].z), c[0], c[1], c[2], edge_name);
+            vis.edges_lines.push_back(edge_name);
         }
     }
 

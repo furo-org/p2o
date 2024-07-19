@@ -8,6 +8,27 @@
 #include <pcl/visualization/pcl_visualizer.h>
 #include "ui_mainwindow.h"
 
+struct PoseGraphVis {
+    std::string name;
+    Eigen::Vector3f color = Eigen::Vector3f(1, 1, 1);
+    std::string nodes_poly;
+    std::vector<std::string> node_axes;
+    std::vector<std::string> edges_lines;
+    void removeObjects(boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer) {
+        viewer->removeShape(nodes_poly);
+        for(auto &node : node_axes) {
+            viewer->removeCoordinateSystem(node);
+        }
+        for(auto &edge : edges_lines) {
+            viewer->removeShape(edge);
+        }
+        nodes_poly = "";
+        node_axes.clear();
+        edges_lines.clear();
+    }
+    PoseGraphVis(const std::string &name, const Eigen::Vector3f &color) : name(name), color(color) {}
+};
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -30,13 +51,15 @@ private:
     void loadSettings();
     void saveSettings();
     void resetViewer();
-    void showPoseGraph(const p2o::Pose3DVec &poses, const std::vector<p2o::ErrorFunc3D*> &errorfuncs, const std::string &name);
+    void showPoseGraph(const p2o::Pose3DVec &poses, const std::vector<p2o::ErrorFunc3D*> &errorfuncs, PoseGraphVis &vis);
 
     Ui::MainWindow ui;
     QStatusBar mStatusBar;
     boost::shared_ptr<pcl::visualization::PCLVisualizer> mViewer;
     p2o::Pose3DVec mNodes;
+    PoseGraphVis mPoseGraphVis;
     p2o::Pose3DVec mResultNodes;
+    PoseGraphVis mResultPoseGraphVis;
     QDir mP2oDir;
     std::vector<p2o::ErrorFunc3D*> mErrorFuncs;
     std::vector<std::string> mCloudFileList;
