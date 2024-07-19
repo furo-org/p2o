@@ -15,6 +15,8 @@ public slots:
     void onLoadP2oFile();
     void onLoadPCDFile();
     void onSavePCDFile();
+    void onShowNodeOrientationCheckedChanged(int state);
+    void onShowEdgesCheckedChanged(int state);
     void onPushOptimizePoseGraph();
     void onPushShowPointCloudMap();
     void onPushHidePointCloudMap();
@@ -27,18 +29,18 @@ private:
     void connectSignalsAndSlots();
     void loadSettings();
     void saveSettings();
-    void loadP2oFile(const std::string &filename);
+    void resetViewer();
     void showPoseGraph(const p2o::Pose3DVec &poses, const std::vector<p2o::ErrorFunc3D*> &errorfuncs, const std::string &name);
 
     Ui::MainWindow ui;
-    QStatusBar statusBar;
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
-    p2o::Pose3DVec nodes;
-    p2o::Pose3DVec nodes_result;
-    QDir p2o_dir;
-    std::vector<p2o::ErrorFunc3D*> errorfuncs;
-    std::vector<std::string> cloud_files;
-    pcl::PointCloud<pcl::PointXYZI>::Ptr map_cloud;
+    QStatusBar mStatusBar;
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> mViewer;
+    p2o::Pose3DVec mNodes;
+    p2o::Pose3DVec mResultNodes;
+    QDir mP2oDir;
+    std::vector<p2o::ErrorFunc3D*> mErrorFuncs;
+    std::vector<std::string> mCloudFileList;
+    pcl::PointCloud<pcl::PointXYZI>::Ptr mMapCloud;
     QString mLastFilePath;
 };
 

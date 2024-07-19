@@ -17,14 +17,16 @@ MainWindow::MainWindow(QWidget *parent) :
     loadSettings();
     ui.setupUi(this);
     connectSignalsAndSlots();
+    onShowNodeOrientationCheckedChanged(ui.checkShowNodeOrientation->checkState()==Qt::Checked);
     auto renderer = vtkSmartPointer<vtkRenderer>::New();
     auto renderWindow = vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
     renderWindow->AddRenderer(renderer);
-    viewer.reset (new pcl::visualization::PCLVisualizer(renderer, renderWindow, "PCL Viewer", false));
-    viewer->setBackgroundColor(0, 0, 0);
-    viewer->addCoordinateSystem(1.0);
-    ui.qvtkWidget->setRenderWindow(viewer->getRenderWindow());
-    this->setStatusBar(&statusBar);
+    mViewer.reset (new pcl::visualization::PCLVisualizer(renderer, renderWindow, "PCL Viewer", false));
+    mViewer->setBackgroundColor(0, 0, 0);
+    mViewer->addCoordinateSystem(1.0);
+    ui.qvtkWidget->setRenderWindow(mViewer->getRenderWindow());
+    mViewer->getRenderWindow()->GlobalWarningDisplayOff();
+    this->setStatusBar(&mStatusBar);
 }
 
 MainWindow::~MainWindow() {
@@ -44,26 +46,30 @@ void MainWindow::connectSignalsAndSlots() {
     assert(res);
     res = connect(ui.pushHidePointCloudMap, SIGNAL(clicked()), this, SLOT(onPushHidePointCloudMap()));
     assert(res);
+    res = connect(ui.checkShowNodeOrientation, SIGNAL(stateChanged(int)), this, SLOT(onShowNodeOrientationCheckedChanged(int)));
+    assert(res);
+    res = connect(ui.checkShowEdges, SIGNAL(stateChanged(int)), this, SLOT(onShowEdgesCheckedChanged(int)));
+    assert(res);
 }
 
 void MainWindow::onPushOptimizePoseGraph() {
     p2o::Optimizer3D opt;
     int min_steps = ui.spinMinSteps->value();
     int max_steps = ui.spinMaxSteps->value();
-    nodes_result = opt.optimizePath(nodes, errorfuncs, max_steps, min_steps);
-    showPoseGraph(nodes_result, errorfuncs, "graph_out");
+    mResultNodes = opt.optimizePath(mNodes, mErrorFuncs, max_steps, min_steps);
+    showPoseGraph(mResultNodes, mErrorFuncs, "graph_out");
 }
 
 void MainWindow::onPushShowPointCloudMap() {
-    p2o::Pose3DVec &nodes_vis = this->nodes_result;
+    p2o::Pose3DVec &nodes_vis = this->mResultNodes;
     if (nodes_vis.empty()) {
-        nodes_vis = nodes;
+        nodes_vis = mNodes;
     }
     if (nodes_vis.empty()) {
         QMessageBox::warning(this, "Error", "No pose graph loaded.");
         return;
     }
-    map_cloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
+    mMapCloud.reset(new pcl::PointCloud<pcl::PointXYZI>);
 
     QProgressDialog progress("Concatenating point clouds...", "Abort", 0, nodes_vis.size(), this);
     progress.setWindowModality(Qt::WindowModal);
@@ -73,38 +79,38 @@ void MainWindow::onPushShowPointCloudMap() {
         if (progress.wasCanceled()) {
             return;
         }
-        if (cloud_files[i].empty()) {
+        if (mCloudFileList[i].empty()) {
             continue;
         }
         Eigen::Isometry3d pose = nodes_vis[i].toIsometry3();
         pcl::PointCloud<pcl::PointXYZI>::Ptr transformed_scan(new pcl::PointCloud<pcl::PointXYZI>);
         // load point cloud file
         pcl::PointCloud<pcl::PointXYZI>::Ptr scan_cloud(new pcl::PointCloud<pcl::PointXYZI>);
-        QString cloud_file = p2o_dir.filePath(QString::fromStdString(cloud_files[i]));
+        QString cloud_file = mP2oDir.filePath(QString::fromStdString(mCloudFileList[i]));
         if (pcl::io::loadPCDFile(cloud_file.toStdString(), *scan_cloud) == -1) {
             std::cerr << "Failed to load scan cloud file." << std::endl;
             return;
         }
 
         pcl::transformPointCloud(*scan_cloud, *transformed_scan, pose.matrix());
-        *map_cloud += *transformed_scan;
+        *mMapCloud += *transformed_scan;
     }
 
     if (ui.checkVoxelGridFilter->isChecked()) {
         pcl::VoxelGrid<pcl::PointXYZI> vg;
-        vg.setInputCloud(map_cloud);
+        vg.setInputCloud(mMapCloud);
         vg.setLeafSize(ui.spinVoxelGridSize->value(), ui.spinVoxelGridSize->value(), ui.spinVoxelGridSize->value());
         pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZI>);
         vg.filter(*cloud_filtered);
-        map_cloud = cloud_filtered;
+        mMapCloud = cloud_filtered;
     }
 
     // display point cloud map
-    viewer->removePointCloud("map_cloud");
-    pcl::visualization::PointCloudColorHandlerGenericField<pcl::PointXYZI> intensity_distribution(map_cloud, "intensity");
-    viewer->addPointCloud<pcl::PointXYZI>(map_cloud, intensity_distribution, "map_cloud");
-    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "map_cloud");
-    viewer->getRenderWindow()->Render();
+    mViewer->removePointCloud("map_cloud");
+    pcl::visualization::PointCloudColorHandlerGenericField<pcl::PointXYZI> intensity_distribution(mMapCloud, "intensity");
+    mViewer->addPointCloud<pcl::PointXYZI>(mMapCloud, intensity_distribution, "map_cloud");
+    mViewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "map_cloud");
+    mViewer->getRenderWindow()->Render();
 }
 
 void MainWindow::onLoadP2oFile() {
@@ -112,11 +118,11 @@ void MainWindow::onLoadP2oFile() {
     if (p2ofile.isEmpty()) {
         return;
     }
-    if (loadP2OFile(p2ofile.toLocal8Bit().data(), nodes, errorfuncs, cloud_files)) {
-        p2o_dir = QFileInfo(p2ofile).absoluteDir();
-        viewer->removeAllShapes();
-        viewer->removeAllPointClouds();
-        showPoseGraph(nodes, errorfuncs, "graph_in");
+    if (loadP2OFile(p2ofile.toLocal8Bit().data(), mNodes, mErrorFuncs, mCloudFileList)) {
+        mP2oDir = QFileInfo(p2ofile).absoluteDir();
+        resetViewer();
+
+        showPoseGraph(mNodes, mErrorFuncs, "graph_in");
         mLastFilePath = p2ofile;
     } else {
         QMessageBox::warning(this, "Error", "Failed to load P2O file.");
@@ -133,16 +139,12 @@ void MainWindow::showPoseGraph(const p2o::Pose3DVec &poses, const std::vector<p2
     } else {
         c << 1.0, 0.0, 0.0;
     }
+
+    // Display nodes
     for(int i = 0; i < poses.size(); i++) {
         vtk_points->InsertNextPoint(poses[i].x, poses[i].y, poses[i].z);
         polyline->GetPointIds()->InsertNextId(i);
     }
-    for(int i = 0; i < errorfuncs.size(); i++) {
-        p2o::ErrorFunc3D *err = errorfuncs[i];
-        //viewer->addLine(pcl::PointXYZ(poses[err->ida].x, poses[err->ida].y, poses[err->ida].z),
-        //                pcl::PointXYZ(poses[err->idb].x, poses[err->idb].y, poses[err->idb].z), c[0], c[1], c[2], edge_name);
-    }
-
     vtkSmartPointer<vtkCellArray> cells = vtkSmartPointer<vtkCellArray>::New();
     cells->InsertNextCell(polyline);
 
@@ -152,19 +154,35 @@ void MainWindow::showPoseGraph(const p2o::Pose3DVec &poses, const std::vector<p2
 
     char graph_name[100];
     sprintf(graph_name, "posegraph_%s", name.c_str());
-    viewer->addModelFromPolyData(polyData, graph_name);
-    viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, c[0], c[1], c[2], graph_name);
+    mViewer->addModelFromPolyData(polyData, graph_name);
+    mViewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, c[0], c[1], c[2], graph_name);
 
-    if (ui.checkCoordinateAxis->isChecked()) {
+    // Display node orientation
+    if (ui.checkShowNodeOrientation->isChecked()) {
+        double axis_size = ui.spinAxisSize->value();
         int skip = ui.spinSkipPose->value();
         for (int i = 0; i < poses.size(); i += skip) {
             Eigen::Affine3f aff = poses[i].toIsometry3().cast<float>();
             char frame_name[100];
             sprintf(frame_name, "axis_%s_%d", name.c_str(), i);
-            viewer->addCoordinateSystem(0.5, aff, frame_name);
+            mViewer->addCoordinateSystem(axis_size, aff, frame_name);
         }
     }
-    viewer->getRenderWindow()->Render();
+
+    // Display edges
+    if (ui.checkShowEdges->isChecked()) {
+        c *= 0.4;
+        for(int i = 0; i < errorfuncs.size(); i++) {
+            p2o::ErrorFunc3D *err = errorfuncs[i];
+            if (abs(err->ida - err->idb) == 1) continue;
+            char edge_name[256];
+            sprintf(edge_name, "edge_%s_%d", name.c_str(), i);
+            mViewer->addLine(pcl::PointXYZ(poses[err->ida].x, poses[err->ida].y, poses[err->ida].z),
+                            pcl::PointXYZ(poses[err->idb].x, poses[err->idb].y, poses[err->idb].z), c[0], c[1], c[2], edge_name);
+        }
+    }
+
+    mViewer->getRenderWindow()->Render();
 }
 
 void MainWindow::onLoadPCDFile() {
@@ -177,20 +195,20 @@ void MainWindow::onLoadPCDFile() {
         std::cerr << "Failed to load PCD file." << std::endl;
         return;
     }
-    viewer->removePointCloud("map_cloud");
+    mViewer->removePointCloud("map_cloud");
     pcl::visualization::PointCloudColorHandlerGenericField<pcl::PointXYZI> intensity_distribution(cloud, "intensity");
-    viewer->addPointCloud<pcl::PointXYZI>(cloud, intensity_distribution, "map_cloud");
-    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "map_cloud");
-    viewer->getRenderWindow()->Render();
+    mViewer->addPointCloud<pcl::PointXYZI>(cloud, intensity_distribution, "map_cloud");
+    mViewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "map_cloud");
+    mViewer->getRenderWindow()->Render();
 }
 
 void MainWindow::onPushHidePointCloudMap() {
-    viewer->removePointCloud("map_cloud");
-    viewer->getRenderWindow()->Render();
+    mViewer->removePointCloud("map_cloud");
+    mViewer->getRenderWindow()->Render();
 }
 
 void MainWindow::onSavePCDFile() {
-    if (map_cloud->empty()) {
+    if (mMapCloud->empty()) {
         QMessageBox::warning(this, "Error", "No point cloud map loaded.");
         return;
     }
@@ -198,7 +216,7 @@ void MainWindow::onSavePCDFile() {
     if (pcdfile.isEmpty()) {
         return;
     }
-    pcl::io::savePCDFileBinary(pcdfile.toLocal8Bit().data(), *map_cloud);
+    pcl::io::savePCDFileBinary(pcdfile.toLocal8Bit().data(), *mMapCloud);
 }
 
 void MainWindow::loadSettings() {
@@ -210,5 +228,23 @@ void MainWindow::saveSettings() {
     QSettings conf;
     conf.setValue("LastP2oFilePath", mLastFilePath);
     conf.sync();
+}
+
+void MainWindow::resetViewer() {
+    mViewer->removeAllCoordinateSystems();
+    mViewer->removeAllShapes();
+    mViewer->removeAllPointClouds();
+    mViewer->addCoordinateSystem();
+}
+
+void MainWindow::onShowNodeOrientationCheckedChanged(int state) {
+    bool enabled = state==Qt::Checked;
+    ui.spinSkipPose->setEnabled(enabled);
+    ui.labelOrientationSkip->setEnabled(enabled);
+    ui.spinAxisSize->setEnabled(enabled);
+    ui.labelAxisSize->setEnabled(enabled);
+}
+
+void MainWindow::onShowEdgesCheckedChanged(int state) {
 }
 
