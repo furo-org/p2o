@@ -68,6 +68,7 @@ void MainWindow::onPushOptimizePoseGraph() {
     p2o::Optimizer3D opt;
     int min_steps = ui.spinMinSteps->value();
     int max_steps = ui.spinMaxSteps->value();
+    opt.setRobustThreshold(ui.spinRobustThre->value());
     mResultNodes = opt.optimizePath(mNodes, mErrorFuncs, max_steps, min_steps);
     showPoseGraph(mResultNodes, mErrorFuncs, mResultPoseGraphVis);
 }

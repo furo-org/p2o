@@ -26,6 +26,7 @@ add_executable(p2o_viewer
         load_p2o_file.cpp
         ${MOC_SOURCES}
         ${UI_HEADERS}
+        ../src/p2o.cpp
 )
 
 target_link_libraries(p2o_viewer
@@ -33,7 +34,6 @@ target_link_libraries(p2o_viewer
     Qt5::Gui
     Qt5::Widgets
     ${PCL_LIBRARIES}
-    p2o
 )
 
 set_property(TARGET p2o_viewer PROPERTY AUTOMOC ON)
