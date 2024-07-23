@@ -1,7 +1,7 @@
 /****************************************************************************
  * p2o: Petite Portable Pose-graph Optimizer v2
- * Copyright (C) 2010-2023 Kiyoshi Irie
- * Copyright (C) 2017-2023 Future Robotics Technology Center (fuRo),
+ * Copyright (C) 2010-2024 Kiyoshi Irie
+ * Copyright (C) 2017-2024 Future Robotics Technology Center (fuRo),
  *                         Chiba Institute of Technology.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public

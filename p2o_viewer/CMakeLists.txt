@@ -8,7 +8,7 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 
 find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED)
-find_package(PCL 1.8 REQUIRED COMPONENTS visualization common io filters registration)
+find_package(PCL 1.14 REQUIRED COMPONENTS visualization common io filters registration)
 find_package(Eigen3 REQUIRED)
 
 include_directories(${PCL_INCLUDE_DIRS})
