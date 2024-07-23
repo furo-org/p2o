@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>648</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QHBoxLayout" name="horizontalLayout">
+    <item>
+     <widget class="QVTKOpenGLNativeWidget" name="qvtkWidget" native="true"/>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionLoad_p2o_file"/>
+    <addaction name="separator"/>
+    <addaction name="actionLoad_PCD_file"/>
+    <addaction name="actionSave_point_cloud_map"/>
+   </widget>
+   <addaction name="menuFile"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QDockWidget" name="dockWidget">
+   <attribute name="dockWidgetArea">
+    <number>2</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents">
+    <layout class="QVBoxLayout" name="verticalLayout">
+     <item>
+      <widget class="QGroupBox" name="groupBox_2">
+       <property name="title">
+        <string>Optimization</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_4">
+          <item>
+           <widget class="QPushButton" name="pushOptimizePoseGraph">
+            <property name="text">
+             <string>Optimize pose graph</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QFormLayout" name="formLayout">
+            <item row="0" column="1">
+             <widget class="QSpinBox" name="spinMaxSteps">
+              <property name="maximum">
+               <number>1000</number>
+              </property>
+              <property name="value">
+               <number>30</number>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_2">
+              <property name="text">
+               <string>Max. steps</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_3">
+              <property name="text">
+               <string>Min. steps</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QSpinBox" name="spinMinSteps">
+              <property name="minimum">
+               <number>1</number>
+              </property>
+              <property name="value">
+               <number>3</number>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QDoubleSpinBox" name="spinRobustThre">
+              <property name="decimals">
+               <number>2</number>
+              </property>
+              <property name="maximum">
+               <double>999.990000000000009</double>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.010000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_4">
+              <property name="text">
+               <string>Robust thre</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="groupBox">
+       <property name="title">
+        <string>Graph Visualization</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_3">
+        <item>
+         <widget class="QCheckBox" name="checkShowNodeOrientation">
+          <property name="text">
+           <string>Show node orientation</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QFormLayout" name="formLayout_3">
+          <item row="1" column="1">
+           <widget class="QDoubleSpinBox" name="spinAxisSize">
+            <property name="suffix">
+             <string>m</string>
+            </property>
+            <property name="decimals">
+             <number>1</number>
+            </property>
+            <property name="minimum">
+             <double>0.100000000000000</double>
+            </property>
+            <property name="maximum">
+             <double>100.000000000000000</double>
+            </property>
+            <property name="value">
+             <double>0.500000000000000</double>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="labelAxisSize">
+            <property name="text">
+             <string>     Axis size</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QSpinBox" name="spinSkipPose">
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>1000</number>
+            </property>
+            <property name="value">
+             <number>10</number>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="0">
+           <widget class="QLabel" name="labelOrientationSkip">
+            <property name="text">
+             <string>     Skip interval</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="checkShowEdges">
+          <property name="text">
+           <string>Show edges</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="groupBox_3">
+       <property name="title">
+        <string>PointCloud</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_5">
+        <item>
+         <widget class="QPushButton" name="pushShowPointCloudMap">
+          <property name="text">
+           <string>Show point cloud map</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QFormLayout" name="formLayout_2">
+          <item row="0" column="0">
+           <widget class="QLabel" name="label_6">
+            <property name="text">
+             <string>Skip interval</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QSpinBox" name="spinSkipPointCloud">
+            <property name="minimum">
+             <number>1</number>
+            </property>
+            <property name="maximum">
+             <number>1000</number>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QCheckBox" name="checkVoxelGridFilter">
+            <property name="text">
+             <string>Voxel filter</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QDoubleSpinBox" name="spinVoxelGridSize">
+            <property name="suffix">
+             <string>m</string>
+            </property>
+            <property name="minimum">
+             <double>0.010000000000000</double>
+            </property>
+            <property name="value">
+             <double>0.300000000000000</double>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QPushButton" name="pushHidePointCloudMap">
+          <property name="text">
+           <string>Hide point cloud map</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  <action name="actionLoad_Map">
+   <property name="text">
+    <string>Load Map</string>
+   </property>
+  </action>
+  <action name="actionLoad_Scan">
+   <property name="text">
+    <string>Load Scan</string>
+   </property>
+  </action>
+  <action name="actionLoad_Odometry">
+   <property name="text">
+    <string>Load Odometry</string>
+   </property>
+  </action>
+  <action name="actionExec_p2o_File">
+   <property name="text">
+    <string>Exec from File</string>
+   </property>
+  </action>
+  <action name="actionLoad_p2o_file">
+   <property name="text">
+    <string>Load p2o file</string>
+   </property>
+  </action>
+  <action name="actionLoad_PCD_file">
+   <property name="text">
+    <string>Load PCD file</string>
+   </property>
+  </action>
+  <action name="actionSave_point_cloud_map">
+   <property name="text">
+    <string>Save point cloud map</string>
+   </property>
+  </action>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QVTKOpenGLNativeWidget</class>
+   <extends>QWidget</extends>
+   <header>QVTKOpenGLNativeWidget.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>
