@@ -22,6 +22,8 @@ cd VTK-8.2.0
 cmake -DCMAKE_BUILD_TYPE=Release -DVTK_Group_Qt=ON -DCMAKE_INSTALL_PREFIX=/opt/vtk8 -Bbuild .
 cmake --build build/
 sudo cmake --install build
+export CMAKE_PREFIX_PATH=/opt/vtk8
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/vtk8/lib
 ```
 
 ### Install PCL 1.14 (Required for Ubuntu 20.04/22.04)
@@ -32,13 +34,14 @@ cd pcl
 cmake -Bbuild -DCMAKE_INSTALL_PREFIX=/opt/pcl .
 cmake --build build
 sudo cmake --install build
+export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:/opt/vtk8
 ```
 
 ### Build p2o viewer
 ```bash
 git clone https://github.com/furo-org/p2o
 cd p2o
-CMAKE_PREFIX_PATH=/opt/pcl cmake -Bbuild . 
+cmake -Bbuild .               # if you built VTK or PCL from source, set CMAKE_PREFIX_PATH
 cmake --build build
 ```
 
