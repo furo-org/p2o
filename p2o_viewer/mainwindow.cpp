@@ -36,7 +36,11 @@ MainWindow::MainWindow(QWidget *parent) :
     mViewer.reset (new pcl::visualization::PCLVisualizer(renderer, renderWindow, "PCL Viewer", false));
     mViewer->setBackgroundColor(0, 0, 0);
     mViewer->addCoordinateSystem(1.0);
+#if VTK_MAJOR_VERSION < 9
+    ui.qvtkWidget->SetRenderWindow(mViewer->getRenderWindow());
+#else
     ui.qvtkWidget->setRenderWindow(mViewer->getRenderWindow());
+#endif
     mViewer->getRenderWindow()->GlobalWarningDisplayOff();
     this->setStatusBar(&mStatusBar);
 }
