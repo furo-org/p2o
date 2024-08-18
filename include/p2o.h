@@ -162,6 +162,8 @@ struct ErrorFunc3D {
     int ida = -1;
     int idb = -1;
     virtual Vec6D calcError(const Pose3D &pa, const Pose3D &pb, Mat6D &Ja, Mat6D &Jb) const = 0;
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
 struct ErrorFunc3D_SE3 : public ErrorFunc3D
