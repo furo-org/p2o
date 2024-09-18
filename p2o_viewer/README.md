@@ -34,7 +34,7 @@ cd pcl
 cmake -Bbuild -DCMAKE_INSTALL_PREFIX=/opt/pcl .
 cmake --build build
 sudo cmake --install build
-export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:/opt/vtk8
+export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:/opt/pcl
 ```
 
 ### Build p2o viewer
