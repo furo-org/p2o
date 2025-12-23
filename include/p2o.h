@@ -187,6 +187,20 @@ struct ErrorFunc3D_Linear3D : public ErrorFunc3D
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
+struct ErrorFunc3D_Gravity : public ErrorFunc3D
+{
+    Vec3D gravity_vec;
+    ErrorFunc3D_Gravity() {}
+    void setGravity(double gx, double gy, double gz) {
+        gravity_vec << gx, gy, gz;
+        gravity_vec.normalize();
+    }
+    Vec6D errorFunc(const Pose3D &pb, const Vec3D &gravity) const;
+    Vec6D calcError(const Pose3D &pa, const Pose3D &pb, Mat6D &Ja, Mat6D &Jb) const;
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
+
 class Optimizer3D
 {
     bool verbose = true;

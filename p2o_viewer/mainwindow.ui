@@ -36,6 +36,7 @@
     <addaction name="actionLoad_p2o_file"/>
     <addaction name="separator"/>
     <addaction name="actionLoad_PCD_file"/>
+    <addaction name="actionSave_Trajectory"/>
     <addaction name="actionSave_point_cloud_map"/>
    </widget>
    <addaction name="menuFile"/>
@@ -149,13 +150,16 @@
              <string>m</string>
             </property>
             <property name="decimals">
-             <number>1</number>
+             <number>2</number>
             </property>
             <property name="minimum">
-             <double>0.100000000000000</double>
+             <double>0.010000000000000</double>
             </property>
             <property name="maximum">
              <double>100.000000000000000</double>
+            </property>
+            <property name="singleStep">
+             <double>0.010000000000000</double>
             </property>
             <property name="value">
              <double>0.500000000000000</double>
@@ -314,6 +318,11 @@
   <action name="actionSave_point_cloud_map">
    <property name="text">
     <string>Save point cloud map</string>
+   </property>
+  </action>
+  <action name="actionSave_Trajectory">
+   <property name="text">
+    <string>Save Trajectory</string>
    </property>
   </action>
  </widget>

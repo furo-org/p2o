@@ -63,6 +63,58 @@ static inline double robust_coeff(p2o_float_t squared_error, p2o_float_t delta)
     return delta / sqre; // linear
 }
 
+Vec6D ErrorFunc3D_Gravity::errorFunc(const Pose3D &pb, const Vec3D &gravity) const {
+    Vec3D expected_gravity_body = pb.rv.toRotationMatrix().transpose() * Vec3D(0, 0, -1);
+
+    Eigen::Vector3d r = expected_gravity_body.cross(gravity);
+    Vec6D ret = Vec6D::Zero();
+    ret[0] = r[0];
+    ret[1] = r[1];
+
+    //std::cout << "cross: " << r.transpose() << std::endl;
+
+    return ret;
+}
+
+Vec6D ErrorFunc3D_Gravity::calcError(const Pose3D &pa, const Pose3D &pb, Mat6D &Ja, Mat6D &Jb) const {
+    const Vec3D &gravity = this->gravity_vec;
+    Vec6D e0 = errorFunc(pb, gravity);
+
+    Ja = Mat6D::Zero();
+    Jb = Mat6D::Zero();
+
+    // predicted gravity in body frame: a = R^T * g0
+    const Vec3D g0(0, 0, -1);
+    Mat3D R = pb.rv.toRotationMatrix();
+    Vec3D a = R.transpose() * g0;
+
+    Vec3D b = gravity;
+
+    Mat3D Jrot = (a.dot(b)) * Mat3D::Identity() - a * b.transpose();
+
+    Jb.block<3,3>(0, 3) = Jrot.block<3,3>(0, 0);
+
+    if (debug_numerical_grad)
+    {
+        std::cout << "----- Gravity Jb" << std::endl;
+        std::cout << Jb << std::endl;
+
+        p2o_float_t eps = 1e-5;
+        for(int i=0; i<6; ++i) {
+            double d[6] = {0, 0, 0, 0, 0, 0};
+            d[i] = eps;
+            RotVec dr(d[3], d[4], d[5]);
+            Pose3D pb1 = pb.oplus(Pose3D(d[0], d[1], d[2], dr));
+            Jb.block<6,1>(0,i) = (errorFunc(pb1, gravity) - e0)/eps;
+        }
+
+        std::cout << "----- Gravity Jb (numeric)" << std::endl;
+        std::cout << Jb << std::endl;
+    }
+
+    return e0;
+}
+
 Vec6D ErrorFunc3D_Linear3D::errorFunc(const Pose3D &pa, const Pose3D &pb, const Vec3D &con) const {
     Vec6D ret = Vec6D::Zero();
     ret[0] = pb.x - pa.x - con[0];

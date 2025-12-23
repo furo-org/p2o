@@ -56,6 +56,8 @@ void MainWindow::connectSignalsAndSlots() {
     assert(res);
     res = connect(ui.actionSave_point_cloud_map, SIGNAL(triggered()), this, SLOT(onSavePCDFile()));
     assert(res);
+    res = connect(ui.actionSave_Trajectory, SIGNAL(triggered()), this, SLOT(onPushSaveTrajectory()));
+    assert(res);
     res = connect(ui.pushOptimizePoseGraph, SIGNAL(clicked()), this, SLOT(onPushOptimizePoseGraph()));
     assert(res);
     res = connect(ui.pushShowPointCloudMap, SIGNAL(clicked()), this, SLOT(onPushShowPointCloudMap()));
@@ -75,6 +77,29 @@ void MainWindow::onPushOptimizePoseGraph() {
     opt.setRobustThreshold(ui.spinRobustThre->value());
     mResultNodes = opt.optimizePath(mNodes, mErrorFuncs, max_steps, min_steps);
     showPoseGraph(mResultNodes, mErrorFuncs, mResultPoseGraphVis);
+}
+
+void MainWindow::onPushSaveTrajectory() {
+    if (mResultNodes.empty()) {
+        QMessageBox::warning(this, "Error", "No optimized trajectory available.");
+        return;
+    }
+    QString trajfile = QFileDialog::getSaveFileName(this, tr("Save Trajectory"), "", tr("Text File (*.txt)"));
+    if (trajfile.isEmpty()) {
+        return;
+    }
+    FILE *fp = fopen(trajfile.toLocal8Bit().data(), "w");
+    if (!fp) {
+        QMessageBox::warning(this, "Error", "Failed to open file for writing.");
+        return;
+    }
+    int id = 0;
+    for (const auto &node : mResultNodes) {
+        Eigen::Quaterniond q = node.rv.toQuaternion();
+        fprintf(fp, "%d %f %f %f %f %f %f %f\n", id, node.x, node.y, node.z, q.x(), q.y(), q.z(), q.w());
+        id++;
+    }
+    fclose(fp);
 }
 
 void MainWindow::onPushShowPointCloudMap() {
