@@ -49,6 +49,7 @@ public slots:
     void onShowNodeOrientationCheckedChanged(int state);
     void onShowEdgesCheckedChanged(int state);
     void onPushOptimizePoseGraph();
+    void onPushSaveTrajectory();
     void onPushShowPointCloudMap();
     void onPushHidePointCloudMap();
 
